@@ -124,3 +124,58 @@ class TestBatchConversion:
         )
         captured = capsys.readouterr()
         assert "FAILED:" in captured.err
+
+    def test_force_split_passed_through(
+        self, backend: PyMuPDFBackend, tmp_path: Path
+    ) -> None:
+        """force_split 파라미터가 write_result에 전달되는지 확인한다."""
+        if not SMALL_PDF.exists():
+            pytest.skip("Sample PDF not available")
+
+        from unittest.mock import patch
+
+        from pdf_to_markdown.output import write_result
+
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        shutil.copy2(SMALL_PDF, input_dir / "test.pdf")
+
+        output_dir = tmp_path / "output"
+        with patch("pdf_to_markdown.batch.write_result", wraps=write_result) as mock_wr:
+            convert_directory(
+                input_dir,
+                output_dir,
+                backend,
+                ConversionOptions(extract_images=False),
+                force_split=True,
+            )
+            mock_wr.assert_called_once()
+            _, kwargs = mock_wr.call_args
+            assert kwargs.get("force_split") is True
+
+    def test_force_split_none_default(
+        self, backend: PyMuPDFBackend, tmp_path: Path
+    ) -> None:
+        """force_split 미지정 시 None이 전달된다."""
+        if not SMALL_PDF.exists():
+            pytest.skip("Sample PDF not available")
+
+        from unittest.mock import patch
+
+        from pdf_to_markdown.output import write_result
+
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        shutil.copy2(SMALL_PDF, input_dir / "test.pdf")
+
+        output_dir = tmp_path / "output"
+        with patch("pdf_to_markdown.batch.write_result", wraps=write_result) as mock_wr:
+            convert_directory(
+                input_dir,
+                output_dir,
+                backend,
+                ConversionOptions(extract_images=False),
+            )
+            mock_wr.assert_called_once()
+            _, kwargs = mock_wr.call_args
+            assert kwargs.get("force_split") is None

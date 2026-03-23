@@ -8,12 +8,12 @@ version = "0.1.0"
 description = "PDF to Markdown CLI converter using PyMuPDF4LLM and Marker backends"
 requires-python = ">=3.10"
 dependencies = [
-    "pymupdf4llm>=0.0.17",
-    "pymupdf>=1.25.0",
+    "pymupdf4llm>=1.27.2",
+    "pymupdf>=1.27.2",
 ]
 
 [project.optional-dependencies]
-marker = ["marker-pdf>=1.0.0"]
+marker = ["marker-pdf>=1.10.0"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=6.0",

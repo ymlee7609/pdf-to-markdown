@@ -99,6 +99,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Print verbose output.",
     )
+
+    split_group = parser.add_mutually_exclusive_group()
+    split_group.add_argument(
+        "--split",
+        action="store_true",
+        default=False,
+        help="Force chapter splitting regardless of file size.",
+    )
+    split_group.add_argument(
+        "--no-split",
+        action="store_true",
+        default=False,
+        help="Disable chapter splitting regardless of file size.",
+    )
     return parser
 
 
@@ -135,10 +149,20 @@ def main(argv: list[str] | None = None) -> int:
 
     input_path: Path = args.input
 
+    # 분할 옵션 결정
+    force_split: bool | None = None
+    if args.split:
+        force_split = True
+    elif args.no_split:
+        force_split = False
+
     if input_path.is_dir():
         output_dir = args.output or input_path.parent / f"{input_path.name}_output"
         output_dir.mkdir(parents=True, exist_ok=True)
-        batch = convert_directory(input_path, output_dir, backend, options, args.verbose)
+        batch = convert_directory(
+            input_path, output_dir, backend, options, args.verbose,
+            force_split=force_split,
+        )
         print(
             f"Batch complete: {batch.success}/{batch.total} succeeded, "
             f"{batch.failed} failed.",
@@ -154,9 +178,20 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = backend.convert(input_path, options)
-        written = write_result(result, output_path)
+        written = write_result(result, output_path, force_split=force_split)
         if args.verbose:
-            print(f"Converted {result.page_count} pages -> {written}", file=sys.stderr)
+            if written.is_dir():
+                chapter_count = len(list(written.glob("*.md")))
+                print(
+                    f"Converted {result.page_count} pages -> {written}/ "
+                    f"({chapter_count} chapters)",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Converted {result.page_count} pages -> {written}",
+                    file=sys.stderr,
+                )
         return 0
     except Exception as exc:
         print(f"Error converting {input_path}: {exc}", file=sys.stderr)

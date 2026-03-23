@@ -1,116 +1,163 @@
 # pdf-to-markdown
 
-PDF를 마크다운으로 변환하는 고성능 CLI 도구입니다. PyMuPDF4LLM(기본)과 Marker(고품질 옵션) 백엔드를 지원합니다.
+High-performance CLI tool to convert PDF documents to Markdown format. Supports PyMuPDF4LLM (default) and Marker (high-quality option) backends.
 
-## 주요 기능
+[한국어](README.ko.md) | **English**
 
-- **빠른 변환**: PyMuPDF4LLM 백엔드를 사용한 기본 고속 변환
-- **고품질 변환**: Marker 백엔드로 표와 그림을 더욱 정확하게 처리
-- **일괄 처리**: 디렉토리 내 여러 PDF 파일을 한 번에 변환
-- **페이지 선택**: 특정 페이지만 선택적으로 변환
-- **이미지 제어**: 이미지 추출 옵션 및 포맷 설정
-- **간편한 설치**: uv 패키지 매니저로 빠른 환경 구성
+## Key Features
 
-## 설치
+- **Fast conversion**: PyMuPDF4LLM backend for rapid PDF processing
+- **High-quality conversion**: Marker backend for superior table and image handling
+- **Batch processing**: Convert multiple PDFs in a directory at once
+- **Page selection**: Convert specific pages using flexible page syntax
+- **Image control**: Extract images with customizable format and DPI options
+- **Chapter splitting**: Auto-split output into per-chapter files when markdown exceeds 500KB for RAG pipeline optimization
+- **Easy installation**: Quick setup with uv package manager
 
-### 기본 설치 (PyMuPDF4LLM 백엔드)
+## Installation
+
+### Basic Installation (PyMuPDF4LLM Backend)
 
 ```bash
 uv venv && uv pip install -e ".[dev]"
 ```
 
-### Marker 백엔드 포함 설치 (고품질 변환)
+### With Marker Backend (High-Quality Conversion)
 
 ```bash
 uv pip install -e ".[marker]"
 ```
 
-**참고**: Marker 백엔드는 최적의 성능을 위해 GPU를 권장합니다.
+**Note**: Marker backend is recommended to run with GPU for optimal performance.
 
-## 사용법
+## Usage
 
-### 기본 사용
+### Basic Usage
 
-단일 PDF 파일 변환:
-
-```bash
-python -m pdf_to_markdown input.pdf -o output.md
-```
-
-또는 설치된 CLI 명령 사용:
+Convert a single PDF file:
 
 ```bash
 pdf2md input.pdf -o output.md
 ```
 
-### 백엔드 선택
-
-PyMuPDF 백엔드 사용 (기본값):
+Or using the module directly:
 
 ```bash
-python -m pdf_to_markdown input.pdf --engine pymupdf
+python -m pdf_to_markdown input.pdf -o output.md
 ```
 
-Marker 백엔드 사용 (고품질):
+### Backend Selection
+
+Use PyMuPDF backend (default):
 
 ```bash
-python -m pdf_to_markdown input.pdf --engine marker
+pdf2md input.pdf --engine pymupdf
 ```
 
-### 페이지 범위 지정
-
-특정 페이지만 변환:
+Use Marker backend (high-quality):
 
 ```bash
-python -m pdf_to_markdown input.pdf --pages 0,5-7,10
+pdf2md input.pdf --engine marker
 ```
 
-### 이미지 처리 옵션
+### Page Range Selection
 
-이미지 없이 변환:
+Convert specific pages only:
 
 ```bash
-python -m pdf_to_markdown input.pdf --no-images
+pdf2md input.pdf --pages 0,5-7,10
 ```
 
-이미지 포맷 및 DPI 설정:
+### Image Processing Options
+
+Convert without images:
 
 ```bash
-python -m pdf_to_markdown input.pdf --image-format png --dpi 150
+pdf2md input.pdf --no-images
 ```
 
-### 디렉토리 일괄 변환
-
-디렉토리 내 모든 PDF 파일을 변환:
+Set image format and DPI:
 
 ```bash
-python -m pdf_to_markdown sample/ -o output/
+pdf2md input.pdf --image-format png --dpi 150
 ```
 
-### 상세 출력
+### Batch Processing
 
-변환 과정을 자세히 확인:
+Convert all PDFs in a directory:
 
 ```bash
-python -m pdf_to_markdown input.pdf -v
+pdf2md sample/ -o output/
 ```
 
-## 프로젝트 구조
+### Chapter Splitting
+
+The tool automatically splits large markdown files (>500KB) into per-chapter files for RAG pipeline optimization:
+
+**Auto-split** (splits when markdown exceeds 500KB):
+```bash
+pdf2md large_document.pdf -o output/
+```
+
+**Force split** (always split by chapters):
+```bash
+pdf2md input.pdf --split
+```
+
+**Disable split** (keep single markdown file):
+```bash
+pdf2md input.pdf --no-split
+```
+
+#### Chapter Split Output Structure
+
+When chapter splitting is active, output is organized as follows:
+
+```
+document/
+├── 00_front-matter.md
+├── 01_introduction.md
+├── 02_system-architecture.md
+├── 03_implementation-guide.md
+└── _images/
+    ├── page0_image1.png
+    ├── page5_image2.png
+    └── page10_image3.png
+```
+
+**Split Behavior**:
+- Splits by `#` (h1) headings; falls back to `##` (h2) if no h1 found
+- Code blocks are excluded from heading detection
+- Content before the first heading is saved as `00_front-matter.md`
+- Files are numbered and named as `NN_slugified-title.md`
+- Images are stored in shared `_images/` subdirectory for easy reference
+- Threshold: 500KB (UTF-8 bytes) per file
+
+### Verbose Output
+
+View detailed conversion progress:
+
+```bash
+pdf2md input.pdf -v
+```
+
+## Project Structure
 
 ```
 pdf_to_markdown/
-├── pyproject.toml              # 프로젝트 설정 및 의존성
+├── pyproject.toml
 ├── src/pdf_to_markdown/
 │   ├── __init__.py
-│   ├── __main__.py            # 메인 진입점
-│   ├── cli.py                 # CLI 인터페이스
-│   ├── converter.py           # 변환 프로토콜 및 데이터 클래스
+│   ├── __main__.py
+│   ├── cli.py                 # CLI interface
+│   ├── converter.py           # Conversion protocol & data classes
+│   ├── splitter.py            # Chapter splitting logic
 │   ├── backends/
-│   │   ├── __init__.py        # 백엔드 팩토리
-│   │   ├── pymupdf.py         # PyMuPDF4LLM 백엔드
-│   │   └── marker.py          # Marker 백엔드 (선택적)
-│   ├── batch.py               # 일괄 변환 처리
-│   └── output.py              # 마크다운 및 이미지 출력
+│   │   ├── __init__.py        # Backend factory
+│   │   ├── pymupdf.py         # PyMuPDF4LLM backend
+│   │   └── marker.py          # Marker backend (optional)
+│   ├── batch.py               # Batch processing
+│   └── output.py              # Markdown & image output
 └── tests/
     ├── conftest.py
     ├── test_converter.py
@@ -118,72 +165,70 @@ pdf_to_markdown/
     ├── test_marker_backend.py
     ├── test_cli.py
     ├── test_batch.py
-    └── test_output.py
+    ├── test_output.py
+    └── test_splitter.py
 ```
 
-## 의존성
+## Dependencies
 
-| 패키지 | 용도 | 필수 여부 |
-|--------|------|-----------|
-| pymupdf4llm | 기본 변환 백엔드 | 필수 |
-| pymupdf | PDF 페이지 수 확인 및 이미지 추출 | 필수 |
-| marker-pdf | 고품질 변환 백엔드 | 선택 (pip install .[marker]) |
-| pytest, pytest-cov | 테스트 프레임워크 | 개발 |
-| ruff | 코드 린팅 | 개발 |
+| Package | Purpose | Required |
+|---------|---------|----------|
+| pymupdf4llm >=1.27.2 | Default conversion backend | Yes |
+| pymupdf >=1.27.2 | PDF page counting & image extraction | Yes |
+| marker-pdf >=1.10.0 | High-quality conversion backend | Optional |
+| pytest, pytest-cov | Testing framework | Dev |
+| ruff | Code linting | Dev |
 
-## 백엔드 비교
+## Backend Comparison
 
-### PyMuPDF4LLM (pymupdf)
-- **장점**: 빠른 속도, 가벼운 메모리 사용
-- **용도**: 대부분의 PDF 문서에 적합
-- **설치**: 기본 포함
-- **특징**: 기본 백엔드로 빠른 변환 제공
+| | PyMuPDF4LLM | Marker |
+|---|---|---|
+| Speed | Fast (seconds) | Slow (minutes) |
+| Memory | Low | High |
+| Table handling | Basic | Excellent |
+| Image handling | Basic | Excellent |
+| Installation | Required | Optional |
+| GPU | Not needed | Recommended |
 
-### Marker (marker-pdf)
-- **장점**: 높은 품질, 표와 그림 처리 우수
-- **용도**: 복잡한 레이아웃의 문서
-- **설치**: 선택적 (`pip install .[marker]`)
-- **특징**: GPU 사용 시 최적 성능
+## Development
 
-## 개발
+### Run Tests
 
-### 테스트 실행
-
-전체 테스트 및 커버리지 확인:
+Run all tests with coverage report:
 
 ```bash
 pytest tests/ -v --cov=pdf_to_markdown --cov-report=term-missing
 ```
 
-빠른 테스트만 실행 (느린 테스트 제외):
+Run tests excluding slow tests:
 
 ```bash
 pytest tests/ -m "not slow"
 ```
 
-### 코드 린팅
+### Code Linting
 
 ```bash
 ruff check src/ tests/
 ```
 
-### 테스트 커버리지
+### Test Coverage
 
-현재 테스트 커버리지: **100%** (59개 테스트 통과)
+Current test coverage: **106 tests passing**, targeting **85%+** coverage.
 
-## 요구사항
+## Requirements
 
 - Python >= 3.10
-- uv 패키지 매니저
+- uv package manager (recommended)
 
-## 라이선스
+## License
 
-라이선스 정보는 추후 업데이트 예정입니다.
+License information to be updated.
 
-## 기여
+## Contributing
 
-기여 가이드라인은 추후 업데이트 예정입니다.
+Contributing guidelines to be updated.
 
-## 문의
+## Support
 
-프로젝트 관련 문의사항이나 버그 리포트는 이슈 트래커를 통해 제출해 주세요.
+Please submit issues and bug reports through the issue tracker.

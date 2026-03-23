@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from pdf_to_markdown.cli import build_parser, main, parse_pages
+from pdf_to_markdown.output import write_result
 
 
 class TestParsePages:
@@ -168,6 +169,59 @@ class TestGetBackend:
             pytest.skip("Marker is installed")
         with pytest.raises(RuntimeError, match="not available"):
             get_backend("marker")
+
+
+class TestSplitFlags:
+    """--split/--no-split CLI 플래그 테스트."""
+
+    def test_split_flag_parsed(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["input.pdf", "--split"])
+        assert args.split is True
+        assert args.no_split is False
+
+    def test_no_split_flag_parsed(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["input.pdf", "--no-split"])
+        assert args.split is False
+        assert args.no_split is True
+
+    def test_no_flags_defaults(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["input.pdf"])
+        assert args.split is False
+        assert args.no_split is False
+
+    def test_mutually_exclusive(self) -> None:
+        parser = build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["input.pdf", "--split", "--no-split"])
+
+    def test_split_passed_to_write_result(
+        self, small_pdf: Path, tmp_output: Path,
+    ) -> None:
+        if not small_pdf.exists():
+            pytest.skip("Sample PDF not available")
+
+        out_file = tmp_output / "split_test.md"
+        with patch("pdf_to_markdown.cli.write_result", wraps=write_result) as mock_wr:
+            main([str(small_pdf), "-o", str(out_file), "--no-images", "--split"])
+            mock_wr.assert_called_once()
+            _, kwargs = mock_wr.call_args
+            assert kwargs.get("force_split") is True
+
+    def test_no_split_passed_to_write_result(
+        self, small_pdf: Path, tmp_output: Path,
+    ) -> None:
+        if not small_pdf.exists():
+            pytest.skip("Sample PDF not available")
+
+        out_file = tmp_output / "nosplit_test.md"
+        with patch("pdf_to_markdown.cli.write_result", wraps=write_result) as mock_wr:
+            main([str(small_pdf), "-o", str(out_file), "--no-images", "--no-split"])
+            mock_wr.assert_called_once()
+            _, kwargs = mock_wr.call_args
+            assert kwargs.get("force_split") is False
 
 
 class TestMainModule:
