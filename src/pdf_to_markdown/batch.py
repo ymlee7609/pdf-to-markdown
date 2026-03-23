@@ -32,6 +32,7 @@ def convert_directory(
     verbose: bool = False,
     *,
     force_split: bool | None = None,
+    min_chunk_size: int = 0,
 ) -> BatchResult:
     """Convert all PDF files in a directory.
 
@@ -54,7 +55,7 @@ def convert_directory(
             print(f"Converting: {pdf_file.name}", file=sys.stderr)
         try:
             result = backend.convert(pdf_file, options)
-            write_result(result, out_path, force_split=force_split)
+            write_result(result, out_path, force_split=force_split, min_chunk_size=min_chunk_size)
             batch.success += 1
             batch.results.append((pdf_file, result))
             if verbose:

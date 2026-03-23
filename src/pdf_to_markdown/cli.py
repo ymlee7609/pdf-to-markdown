@@ -113,6 +113,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Disable chapter splitting regardless of file size.",
     )
+    parser.add_argument(
+        "--min-chunk-size",
+        type=int,
+        default=0,
+        help="Minimum chunk size in bytes for chapter merging (default: 0, no merging).",
+    )
     return parser
 
 
@@ -162,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         batch = convert_directory(
             input_path, output_dir, backend, options, args.verbose,
             force_split=force_split,
+            min_chunk_size=args.min_chunk_size,
         )
         print(
             f"Batch complete: {batch.success}/{batch.total} succeeded, "
@@ -178,7 +185,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = backend.convert(input_path, options)
-        written = write_result(result, output_path, force_split=force_split)
+        written = write_result(
+            result, output_path,
+            force_split=force_split,
+            min_chunk_size=args.min_chunk_size,
+        )
         if args.verbose:
             if written.is_dir():
                 chapter_count = len(list(written.glob("*.md")))

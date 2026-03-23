@@ -9,6 +9,9 @@ from dataclasses import dataclass
 # 챕터 분할 크기 기준 (바이트)
 SPLIT_THRESHOLD = 500_000
 
+# 챕터 병합 최소 크기 기준 (바이트, 0이면 병합 비활성화)
+DEFAULT_MIN_CHUNK_SIZE = 0
+
 
 @dataclass
 class Chapter:
@@ -92,6 +95,62 @@ def split_by_chapters(markdown: str) -> list[Chapter]:
         idx += 1
 
     return chapters
+
+
+def merge_small_chapters(
+    chapters: list[Chapter],
+    min_chunk_size: int = DEFAULT_MIN_CHUNK_SIZE,
+) -> list[Chapter]:
+    """작은 챕터를 인접 챕터와 병합한다.
+
+    ``min_chunk_size`` 미만인 챕터를 다음 챕터와 합쳐서
+    RAG에 적합한 크기의 청크를 만든다.
+
+    Args:
+        chapters: 분할된 챕터 목록.
+        min_chunk_size: 최소 청크 크기(바이트). 0이면 병합하지 않는다.
+
+    Returns:
+        병합된 챕터 목록. 인덱스는 0부터 재번호된다.
+    """
+    if min_chunk_size <= 0 or len(chapters) <= 1:
+        return chapters
+
+    merged: list[Chapter] = []
+    buf_title = chapters[0].title
+    buf_content = chapters[0].content
+
+    for ch in chapters[1:]:
+        if len(buf_content.encode("utf-8")) < min_chunk_size:
+            # 버퍼가 작으면 다음 챕터를 병합
+            buf_content = buf_content.rstrip("\n") + "\n\n" + ch.content
+        else:
+            # 버퍼가 충분히 크면 결과에 추가하고 새 버퍼 시작
+            merged.append(Chapter(title=buf_title, content=buf_content, index=0))
+            buf_title = ch.title
+            buf_content = ch.content
+
+    # 마지막 버퍼 추가
+    merged.append(Chapter(title=buf_title, content=buf_content, index=0))
+
+    # 마지막 챕터가 너무 작으면 이전 챕터에 병합 (고아 방지)
+    if (
+        len(merged) >= 2
+        and len(merged[-1].content.encode("utf-8")) < min_chunk_size
+    ):
+        last = merged.pop()
+        prev = merged[-1]
+        merged[-1] = Chapter(
+            title=prev.title,
+            content=prev.content.rstrip("\n") + "\n\n" + last.content,
+            index=0,
+        )
+
+    # 인덱스 재번호
+    for i, ch in enumerate(merged):
+        merged[i] = Chapter(title=ch.title, content=ch.content, index=i)
+
+    return merged
 
 
 def chapter_filename(index: int, title: str) -> str:

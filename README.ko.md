@@ -12,6 +12,8 @@ PDF 문서를 마크다운으로 변환하는 고성능 CLI 도구입니다. PyM
 - **페이지 선택**: 유연한 페이지 선택 문법으로 특정 페이지만 변환
 - **이미지 제어**: 이미지 추출 옵션 및 포맷, DPI 설정
 - **챕터 분할**: 마크다운이 500KB를 초과할 때 자동으로 챕터 단위로 분할하여 RAG 파이프라인 최적화
+- **챕터 병합**: `--min-chunk-size`로 작은 인접 챕터를 병합하여 RAG 검색에 최적화된 청크 크기 조절
+- **INDEX 생성**: 분할 시 챕터 메타데이터 테이블이 포함된 `INDEX.md` 자동 생성
 - **간편한 설치**: uv 패키지 매니저로 빠른 환경 구성
 
 ## 설치
@@ -109,12 +111,20 @@ pdf2md input.pdf --split
 pdf2md input.pdf --no-split
 ```
 
+**작은 챕터 병합** (지정 크기 미만의 챕터를 인접 챕터와 병합):
+```bash
+pdf2md input.pdf --split --min-chunk-size 50000
+```
+
+50KB 미만의 인접 챕터를 병합하여 출력 파일 수를 줄이고, RAG에 적합한 크기의 청크를 생성합니다.
+
 #### 챕터 분할 출력 구조
 
 챕터 분할이 활성화되면 다음과 같이 구성됩니다:
 
 ```
 document/
+├── INDEX.md
 ├── 00_front-matter.md
 ├── 01_introduction.md
 ├── 02_system-architecture.md
@@ -125,12 +135,31 @@ document/
     └── page10_image3.png
 ```
 
+`INDEX.md`에는 RAG 파이프라인에서 활용할 수 있는 메타데이터 요약과 챕터 테이블이 포함됩니다:
+
+```markdown
+# INDEX
+
+- **Source**: document.pdf
+- **Pages**: 120
+- **Chapters**: 4
+
+| # | Title | File | Size | Chars |
+|---|-------|------|------|-------|
+| 0 | front-matter | 00_front-matter.md | 2.1KB | 1820 |
+| 1 | Introduction | 01_introduction.md | 5.2KB | 4120 |
+| 2 | System Architecture | 02_system-architecture.md | 12.3KB | 10540 |
+| 3 | Implementation Guide | 03_implementation-guide.md | 8.7KB | 7230 |
+```
+
 **분할 동작**:
 - `#` (h1) 제목으로 분할; h1이 없으면 `##` (h2)로 폴백
 - 코드 블록은 제목 감지에서 제외
 - 첫 번째 제목 이전의 내용은 `00_front-matter.md`로 저장
 - 파일은 `NN_slugified-title.md` 형식으로 번호 지정 및 이름 지정
 - 이미지는 공유 `_images/` 하위 디렉토리에 저장되어 쉬운 참조 가능
+- `INDEX.md`가 챕터 메타데이터(제목, 파일명, 크기, 글자수)와 함께 자동 생성
+- `--min-chunk-size N`으로 N바이트 미만 챕터를 병합 가능
 - 임계값: 파일당 500KB (UTF-8 바이트)
 
 ### 상세 출력
@@ -214,7 +243,7 @@ ruff check src/ tests/
 
 ### 테스트 커버리지
 
-현재 테스트 상태: **106개 테스트 통과**, **85%+** 커버리지 목표.
+현재 테스트 상태: **131개 테스트 통과**, **100%** 커버리지.
 
 ## 요구사항
 

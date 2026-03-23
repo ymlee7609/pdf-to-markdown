@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from pdf_to_markdown.splitter import (
+    Chapter,
     chapter_filename,
+    merge_small_chapters,
     rewrite_image_paths,
     should_split,
     split_by_chapters,
@@ -143,6 +145,141 @@ class TestSplitByChapters:
         chapters = split_by_chapters(md)
         for ch in chapters:
             assert ch.content.endswith("\n")
+
+    def test_heading_without_trailing_newline(self) -> None:
+        """heading 뒤에 newline이 없는 경우도 처리한다."""
+        md = "# Title"
+        chapters = split_by_chapters(md)
+        assert len(chapters) == 1
+        assert chapters[0].title == "Title"
+
+    def test_empty_heading_text(self) -> None:
+        """heading 텍스트가 비어있으면 chapter-N으로 대체한다."""
+        md = "# \n\nContent after empty heading.\n"
+        chapters = split_by_chapters(md)
+        assert len(chapters) == 1
+        assert chapters[0].title == "chapter-0"
+
+    def test_unclosed_code_block(self) -> None:
+        """닫히지 않은 코드 블록 내부의 #은 heading으로 인식하지 않는다."""
+        # backtick으로 열고 tilde가 있지만 닫히지 않는 케이스
+        # (매치가 2개 이상이어야 while 루프 진입)
+        md = "# Real\n\n```\ncode\n~~~\n# Not heading\n"
+        chapters = split_by_chapters(md)
+        assert len(chapters) == 1
+        assert chapters[0].title == "Real"
+        assert "# Not heading" in chapters[0].content
+
+
+# ---------------------------------------------------------------------------
+# merge_small_chapters
+# ---------------------------------------------------------------------------
+
+
+class TestMergeSmallChapters:
+    """merge_small_chapters() 챕터 병합 테스트."""
+
+    def _ch(self, title: str, content: str, index: int = 0) -> Chapter:
+        return Chapter(title=title, content=content, index=index)
+
+    def test_no_merge_when_disabled(self) -> None:
+        """min_chunk_size=0이면 병합하지 않는다."""
+        chapters = [self._ch("A", "short", 0), self._ch("B", "text", 1)]
+        result = merge_small_chapters(chapters, min_chunk_size=0)
+        assert len(result) == 2
+
+    def test_no_merge_all_large(self) -> None:
+        """모든 챕터가 min_chunk_size 이상이면 병합하지 않는다."""
+        big = "x" * 1000
+        chapters = [self._ch("A", big, 0), self._ch("B", big, 1)]
+        result = merge_small_chapters(chapters, min_chunk_size=100)
+        assert len(result) == 2
+
+    def test_merge_two_small_chapters(self) -> None:
+        """두 개의 작은 챕터가 하나로 병합된다."""
+        chapters = [self._ch("A", "small-a\n", 0), self._ch("B", "small-b\n", 1)]
+        result = merge_small_chapters(chapters, min_chunk_size=1000)
+        assert len(result) == 1
+        assert "small-a" in result[0].content
+        assert "small-b" in result[0].content
+
+    def test_merge_preserves_first_title(self) -> None:
+        """병합된 챕터의 title은 첫 챕터의 것을 유지한다."""
+        chapters = [self._ch("First", "aaa\n", 0), self._ch("Second", "bbb\n", 1)]
+        result = merge_small_chapters(chapters, min_chunk_size=1000)
+        assert result[0].title == "First"
+
+    def test_merge_reindexes(self) -> None:
+        """병합 후 인덱스가 0부터 재번호된다."""
+        big = "x" * 500
+        chapters = [
+            self._ch("A", "small\n", 0),
+            self._ch("B", "small\n", 1),
+            self._ch("C", big + "\n", 2),
+            self._ch("D", big + "\n", 3),
+        ]
+        result = merge_small_chapters(chapters, min_chunk_size=100)
+        for i, ch in enumerate(result):
+            assert ch.index == i
+
+    def test_all_small_merge_into_one(self) -> None:
+        """모든 챕터가 작으면 하나로 병합된다."""
+        chapters = [
+            self._ch("A", "a\n", 0),
+            self._ch("B", "b\n", 1),
+            self._ch("C", "c\n", 2),
+        ]
+        result = merge_small_chapters(chapters, min_chunk_size=10000)
+        assert len(result) == 1
+        assert result[0].title == "A"
+
+    def test_last_small_chapter_merged_back(self) -> None:
+        """마지막 챕터가 작으면 이전 챕터에 병합된다 (고아 방지)."""
+        big = "x" * 500
+        chapters = [
+            self._ch("A", big + "\n", 0),
+            self._ch("B", big + "\n", 1),
+            self._ch("C", "tiny\n", 2),
+        ]
+        result = merge_small_chapters(chapters, min_chunk_size=100)
+        assert len(result) == 2
+        assert "tiny" in result[-1].content
+
+    def test_single_chapter_no_merge(self) -> None:
+        """챕터가 1개면 그대로 반환한다."""
+        chapters = [self._ch("Only", "content\n", 0)]
+        result = merge_small_chapters(chapters, min_chunk_size=1000)
+        assert len(result) == 1
+        assert result[0].title == "Only"
+
+    def test_empty_chapters_list(self) -> None:
+        """빈 리스트 입력 시 빈 리스트를 반환한다."""
+        result = merge_small_chapters([], min_chunk_size=1000)
+        assert result == []
+
+    def test_mixed_sizes(self) -> None:
+        """큰 챕터와 작은 챕터가 섞여 있을 때 올바르게 병합한다."""
+        big = "x" * 500
+        chapters = [
+            self._ch("Big1", big + "\n", 0),
+            self._ch("Small1", "s1\n", 1),
+            self._ch("Small2", "s2\n", 2),
+            self._ch("Big2", big + "\n", 3),
+        ]
+        result = merge_small_chapters(chapters, min_chunk_size=100)
+        # Big1은 독립, Small1+Small2는 100 미만이므로 Big2까지 병합됨
+        assert len(result) == 2
+        assert result[0].title == "Big1"
+        assert result[1].title == "Small1"
+        assert "s1" in result[1].content
+        assert "s2" in result[1].content
+        assert big in result[1].content
+
+    def test_negative_min_chunk_size(self) -> None:
+        """음수 min_chunk_size는 0과 동일하게 병합하지 않는다."""
+        chapters = [self._ch("A", "a\n", 0), self._ch("B", "b\n", 1)]
+        result = merge_small_chapters(chapters, min_chunk_size=-1)
+        assert len(result) == 2
 
 
 # ---------------------------------------------------------------------------

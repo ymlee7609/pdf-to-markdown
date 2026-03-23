@@ -128,6 +128,14 @@ class TestMainCLI:
         code = main([str(small_pdf), "-o", str(out_file), "--no-images", "-v"])
         assert code == 0
 
+    def test_verbose_split_output(self, small_pdf: Path, tmp_output: Path) -> None:
+        if not small_pdf.exists():
+            pytest.skip("Sample PDF not available")
+
+        out_file = tmp_output / "verbose_split.md"
+        code = main([str(small_pdf), "-o", str(out_file), "--no-images", "-v", "--split"])
+        assert code == 0
+
     def test_convert_error_returns_1(self, tmp_path: Path) -> None:
         bad_pdf = tmp_path / "bad.pdf"
         bad_pdf.write_text("not a pdf")
@@ -222,6 +230,33 @@ class TestSplitFlags:
             mock_wr.assert_called_once()
             _, kwargs = mock_wr.call_args
             assert kwargs.get("force_split") is False
+
+
+class TestMinChunkSize:
+    """--min-chunk-size CLI 플래그 테스트."""
+
+    def test_min_chunk_size_parsed(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["input.pdf", "--min-chunk-size", "50000"])
+        assert args.min_chunk_size == 50000
+
+    def test_min_chunk_size_default(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["input.pdf"])
+        assert args.min_chunk_size == 0
+
+    def test_min_chunk_size_passed_to_write_result(
+        self, small_pdf: Path, tmp_output: Path,
+    ) -> None:
+        if not small_pdf.exists():
+            pytest.skip("Sample PDF not available")
+
+        out_file = tmp_output / "chunk_test.md"
+        with patch("pdf_to_markdown.cli.write_result", wraps=write_result) as mock_wr:
+            main([str(small_pdf), "-o", str(out_file), "--no-images", "--min-chunk-size", "50000"])
+            mock_wr.assert_called_once()
+            _, kwargs = mock_wr.call_args
+            assert kwargs.get("min_chunk_size") == 50000
 
 
 class TestMainModule:
