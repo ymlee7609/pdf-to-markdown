@@ -10,6 +10,7 @@ description: >
 license: Apache-2.0
 compatibility: Designed for Claude Code
 allowed-tools: Read Grep Glob mcp__context7__resolve-library-id mcp__context7__get-library-docs
+effort: high
 user-invocable: false
 metadata:
   version: "1.1.0"
@@ -27,26 +28,7 @@ progressive_disclosure:
 
 # MoAI Extension: Triggers
 triggers:
-  keywords:
-    - "architecture"
-    - "architecture decision"
-    - "technology selection"
-    - "trade-off"
-    - "strategic"
-    - "decision"
-    - "analysis"
-    - "design thinking"
-    - "first principles"
-    - "five whys"
-    - "assumption"
-    - "alternative"
-    - "cognitive bias"
-    - "root cause"
-    - "framework selection"
-    - "library selection"
-    - "database selection"
-    - "performance vs maintainability"
-    - "breaking change"
+  keywords: ["architecture", "architecture decision", "technology selection", "trade-off", "strategic", "decision", "analysis", "design thinking", "first principles", "five whys", "assumption", "alternative", "cognitive bias", "root cause", "framework selection", "library selection", "database selection", "performance vs maintainability", "breaking change"]
   agents:
     - "manager-strategy"
     - "manager-spec"
